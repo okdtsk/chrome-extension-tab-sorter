@@ -1,0 +1,34 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>Tab Sorter Options</title>
+  <link rel="stylesheet" href="options.css">
+</head>
+<body>
+  <div class="container">
+    <h1>Tab Sorter Options</h1>
+    
+    <div class="option-group">
+      <label for="sortType">Sort Type:</label>
+      <select id="sortType">
+        <option value="url">Based on URL</option>
+        <option value="title">Based on Title</option>
+      </select>
+    </div>
+    
+    <div class="option-group">
+      <label for="sortOrder">Sort Order:</label>
+      <select id="sortOrder">
+        <option value="ascending">Ascending</option>
+        <option value="descending">Descending</option>
+      </select>
+    </div>
+    
+    
+    <div id="status"></div>
+  </div>
+  
+  <script src="options.js"></script>
+</body>
+</html>

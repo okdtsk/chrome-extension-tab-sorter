@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <link rel="stylesheet" href="popup.css">
+</head>
+<body>
+  <div class="container">
+    <h2>Tab Sorter</h2>
+    
+    <button id="sortButton" class="action-button">
+      <span class="button-icon">↕️</span>
+      <span class="button-text">Sort Tabs</span>
+      <span class="button-description">Sort tabs in current window</span>
+    </button>
+    
+    <button id="gatherButton" class="action-button">
+      <span class="button-icon">🔄</span>
+      <span class="button-text">Gather Tabs</span>
+      <span class="button-description">Collect tabs from all windows</span>
+    </button>
+    
+    <div class="statistics">
+      <h3>Tab Statistics</h3>
+      <div id="stats-loading" class="loading-message">Loading...</div>
+      <div id="stats-content" style="display: none;">
+        <div class="stat-section">
+          <h4>Same URL Tabs</h4>
+          <div id="duplicate-urls" class="stat-list"></div>
+        </div>
+        
+        <div class="stat-section">
+          <h4>Same Title Tabs</h4>
+          <div id="duplicate-titles" class="stat-list"></div>
+        </div>
+        
+        <div class="stat-section">
+          <h4>Tabs per Domain</h4>
+          <div id="domain-counts" class="stat-list"></div>
+        </div>
+      </div>
+    </div>
+    
+    <div class="footer">
+      <a href="options.html" target="_blank" class="options-link">Options</a>
+    </div>
+  </div>
+  
+  <script type="module" src="popup.js"></script>
+</body>
+</html>
