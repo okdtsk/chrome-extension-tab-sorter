@@ -8,6 +8,11 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
       .then(() => sendResponse({ success: true }))
       .catch((error) => sendResponse({ success: false, error: error.message }));
     return true; // Will respond asynchronously
+  } else if (request.action === 'closeTab') {
+    handleTabClose(request.tabId)
+      .then(() => sendResponse({ success: true }))
+      .catch((error) => sendResponse({ success: false, error: error.message }));
+    return true; // Will respond asynchronously
   }
 });
 
@@ -19,6 +24,16 @@ async function handleTabSwitch(tabId, windowId) {
     await chrome.tabs.update(tabId, { active: true });
   } catch (error) {
     console.error('Error switching tab in background:', error);
+    throw error;
+  }
+}
+
+async function handleTabClose(tabId) {
+  try {
+    // Close the tab
+    await chrome.tabs.remove(tabId);
+  } catch (error) {
+    console.error('Error closing tab in background:', error);
     throw error;
   }
 }
