@@ -368,6 +368,14 @@ class PopupController {
     event.stopPropagation();
     const tabId = parseInt(event.target.dataset.tabId);
     
+    // Find the tab option element (parent of the close button)
+    const tabOptionElement = event.target.closest('.tab-option');
+    
+    if (!tabOptionElement) {
+      console.error('Could not find tab option element');
+      return;
+    }
+    
     try {
       const response = await chrome.runtime.sendMessage({
         action: 'closeTab',
@@ -375,13 +383,15 @@ class PopupController {
       });
       
       if (response.success) {
-        event.currentTarget.remove();
+        // Remove the tab option element from the DOM
+        tabOptionElement.remove();
         
         const modalTabGroup = modal.dataset.tabGroup;
         const modalGroupInfo = JSON.parse(modal.dataset.groupInfo || '{}');
         
         await this.refreshStatisticsAndModal(modalTabGroup, modalGroupInfo);
         
+        // Check if there are any remaining tab options
         if (tabList.querySelectorAll('.tab-option').length === 0) {
           modal.style.display = 'none';
         }
