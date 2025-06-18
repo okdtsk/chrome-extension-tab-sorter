@@ -25,7 +25,8 @@ async function analyzeAllTabs() {
         title: tab.title,
         url: tab.url,
         windowId: tab.windowId,
-        favIconUrl: tab.favIconUrl || null
+        favIconUrl: tab.favIconUrl || null,
+        lastAccessed: tab.lastAccessed || null
       });
     }
   });
@@ -41,7 +42,8 @@ async function analyzeAllTabs() {
         title: tab.title,
         url: tab.url,
         windowId: tab.windowId,
-        favIconUrl: tab.favIconUrl || null
+        favIconUrl: tab.favIconUrl || null,
+        lastAccessed: tab.lastAccessed || null
       });
     }
   });
@@ -136,7 +138,8 @@ async function analyzeAllTabs() {
             title: tab.title,
             url: tab.url,
             windowId: tab.windowId,
-            favIconUrl: tab.favIconUrl || null
+            favIconUrl: tab.favIconUrl || null,
+            lastAccessed: tab.lastAccessed || null
           });
         }
       } catch (error) {
