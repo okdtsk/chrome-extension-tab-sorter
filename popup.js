@@ -144,6 +144,16 @@ class PopupController {
       : `<div class="stat-favicon stat-favicon-placeholder"></div>`;
   }
 
+  sortTabsByLastViewed(tabs) {
+    return [...tabs].sort((a, b) => {
+      const timeA = a.lastAccessed || 0;
+      const timeB = b.lastAccessed || 0;
+      
+      // Sort by oldest first (smallest timestamp first)
+      return timeA - timeB;
+    });
+  }
+
   async refreshStatisticsAndModal(tabGroup, groupInfo) {
     console.log('Refreshing statistics and modal');
     
@@ -292,7 +302,9 @@ class PopupController {
     
     tabList.innerHTML = '';
     
-    tabs.forEach((tab) => {
+    const sortedTabs = this.sortTabsByLastViewed(tabs);
+    
+    sortedTabs.forEach((tab) => {
       const tabOption = this.createTabOption(tab, modal, tabList);
       tabList.appendChild(tabOption);
     });
