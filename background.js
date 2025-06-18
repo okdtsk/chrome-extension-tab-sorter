@@ -1,3 +1,24 @@
 // Background script for Tab Sorter extension
-// This file is kept for the service worker but no longer handles action clicks
-// All user interactions are now handled through the popup
+// Handles messages from popup for operations that need to continue after popup closes
+
+// Listen for messages from popup
+chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
+  if (request.action === 'switchToTab') {
+    handleTabSwitch(request.tabId, request.windowId)
+      .then(() => sendResponse({ success: true }))
+      .catch((error) => sendResponse({ success: false, error: error.message }));
+    return true; // Will respond asynchronously
+  }
+});
+
+async function handleTabSwitch(tabId, windowId) {
+  try {
+    // First focus the window
+    await chrome.windows.update(windowId, { focused: true });
+    // Then activate the tab
+    await chrome.tabs.update(tabId, { active: true });
+  } catch (error) {
+    console.error('Error switching tab in background:', error);
+    throw error;
+  }
+}
