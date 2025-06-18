@@ -1,84 +1,99 @@
-async function analyzeAllTabs() {
-  // Get all windows with their tabs
-  const allWindows = await chrome.windows.getAll({ populate: true });
-  
-  // Collect all tabs from all windows
-  const allTabs = [];
-  for (const window of allWindows) {
-    if (window.tabs) {
-      allTabs.push(...window.tabs);
+class TabAnalyzer {
+  constructor() {
+    this.allWindows = [];
+    this.allTabs = [];
+    this.urlGroups = {};
+    this.titleGroups = {};
+    this.domainData = {};
+  }
+
+  async initialize() {
+    this.allWindows = await chrome.windows.getAll({ populate: true });
+    this.collectAllTabs();
+    this.groupTabsByUrl();
+    this.groupTabsByTitle();
+    this.analyzeDomains();
+  }
+
+  collectAllTabs() {
+    for (const window of this.allWindows) {
+      if (window.tabs) {
+        this.allTabs.push(...window.tabs);
+      }
     }
   }
-  
-  // Analyze duplicates and categorize them
-  const urlGroups = {};
-  const titleGroups = {};
-  
-  // Group tabs by URL
-  allTabs.forEach(tab => {
-    if (tab.url) {
-      if (!urlGroups[tab.url]) {
-        urlGroups[tab.url] = [];
+
+  createTabInfo(tab) {
+    return {
+      id: tab.id,
+      title: tab.title,
+      url: tab.url,
+      windowId: tab.windowId,
+      favIconUrl: tab.favIconUrl || null,
+      lastAccessed: tab.lastAccessed || null
+    };
+  }
+
+  groupTabsByUrl() {
+    this.allTabs.forEach(tab => {
+      if (tab.url) {
+        if (!this.urlGroups[tab.url]) {
+          this.urlGroups[tab.url] = [];
+        }
+        this.urlGroups[tab.url].push(this.createTabInfo(tab));
       }
-      urlGroups[tab.url].push({
-        id: tab.id,
-        title: tab.title,
-        url: tab.url,
-        windowId: tab.windowId,
-        favIconUrl: tab.favIconUrl || null,
-        lastAccessed: tab.lastAccessed || null
-      });
-    }
-  });
-  
-  // Group tabs by title
-  allTabs.forEach(tab => {
-    if (tab.title) {
-      if (!titleGroups[tab.title]) {
-        titleGroups[tab.title] = [];
+    });
+  }
+
+  groupTabsByTitle() {
+    this.allTabs.forEach(tab => {
+      if (tab.title) {
+        if (!this.titleGroups[tab.title]) {
+          this.titleGroups[tab.title] = [];
+        }
+        this.titleGroups[tab.title].push(this.createTabInfo(tab));
       }
-      titleGroups[tab.title].push({
-        id: tab.id,
-        title: tab.title,
-        url: tab.url,
-        windowId: tab.windowId,
-        favIconUrl: tab.favIconUrl || null,
-        lastAccessed: tab.lastAccessed || null
-      });
-    }
-  });
+    });
+  }
   
-  // Categorize duplicates
-  const sameUrlAndTitle = [];
-  const sameUrlDifferentTitle = [];
-  const sameTitleDifferentUrl = [];
-  
-  // Find tabs with same URL
-  for (const [url, tabs] of Object.entries(urlGroups)) {
-    if (tabs.length > 1) {
-      // Check if all tabs have the same title
-      const firstTitle = tabs[0].title;
-      const allSameTitle = tabs.every(tab => tab.title === firstTitle);
-      
-      if (allSameTitle) {
-        sameUrlAndTitle.push({
+  categorizeDuplicates() {
+    const sameUrlAndTitle = this.findSameUrlAndTitle();
+    const sameUrlDifferentTitle = this.findSameUrlDifferentTitle();
+    const sameTitleDifferentUrl = this.findSameTitleDifferentUrl(sameUrlAndTitle);
+    
+    return {
+      sameUrlAndTitle: this.sortByCount(sameUrlAndTitle),
+      sameUrlDifferentTitle: this.sortByCount(sameUrlDifferentTitle),
+      sameTitleDifferentUrl: this.sortByCount(sameTitleDifferentUrl)
+    };
+  }
+
+  findSameUrlAndTitle() {
+    const results = [];
+    
+    for (const [url, tabs] of Object.entries(this.urlGroups)) {
+      if (tabs.length > 1 && this.allTabsHaveSameTitle(tabs)) {
+        results.push({
           url: url,
-          title: firstTitle,
+          title: tabs[0].title,
           count: tabs.length,
           tabs: tabs,
           favIconUrl: tabs[0].favIconUrl
         });
-      } else {
-        // Group by different titles for the same URL
-        const titleMap = {};
-        tabs.forEach(tab => {
-          if (!titleMap[tab.title]) {
-            titleMap[tab.title] = 0;
-          }
-          titleMap[tab.title]++;
-        });
+      }
+    }
+    
+    return results;
+  }
+
+  findSameUrlDifferentTitle() {
+    const results = [];
+    
+    for (const [url, tabs] of Object.entries(this.urlGroups)) {
+      if (tabs.length > 1 && !this.allTabsHaveSameTitle(tabs)) {
+        const titleMap = this.createTitleCountMap(tabs);
         
-        sameUrlDifferentTitle.push({
+        results.push({
           url: url,
           count: tabs.length,
           titles: Object.keys(titleMap),
@@ -87,85 +102,120 @@ async function analyzeAllTabs() {
         });
       }
     }
+    
+    return results;
   }
-  
-  // Find tabs with same title but different URLs
-  for (const [title, tabs] of Object.entries(titleGroups)) {
-    if (tabs.length > 1) {
-      // Check if any have different URLs
-      const urlSet = new Set(tabs.map(tab => tab.url));
-      if (urlSet.size > 1) {
-        // Only include if not already in sameUrlAndTitle
-        const isInSameUrlAndTitle = sameUrlAndTitle.some(item => item.title === title);
-        if (!isInSameUrlAndTitle) {
-          sameTitleDifferentUrl.push({
-            title: title,
-            count: tabs.length,
-            urls: Array.from(urlSet),
-            tabs: tabs,
-            favIconUrl: tabs[0].favIconUrl
-          });
-        }
-      }
-    }
-  }
-  
-  // Analyze tabs per domain
-  const domainData = {};
-  
-  allTabs.forEach(tab => {
-    if (tab.url) {
-      try {
-        const url = new URL(tab.url);
-        const domain = url.hostname;
+
+  findSameTitleDifferentUrl(sameUrlAndTitle) {
+    const results = [];
+    
+    for (const [title, tabs] of Object.entries(this.titleGroups)) {
+      if (tabs.length > 1 && this.hasMultipleUrls(tabs) && !this.isAlreadyInSameUrlAndTitle(title, sameUrlAndTitle)) {
+        const urlSet = new Set(tabs.map(tab => tab.url));
         
-        if (domain) {
-          if (!domainData[domain]) {
-            domainData[domain] = {
-              count: 0,
-              favIconUrl: null,
-              tabs: []
-            };
-          }
-          domainData[domain].count++;
-          // Store the first non-null favicon found for this domain
-          if (!domainData[domain].favIconUrl && tab.favIconUrl) {
-            domainData[domain].favIconUrl = tab.favIconUrl;
-          }
-          // Store tab information
-          domainData[domain].tabs.push({
-            id: tab.id,
-            title: tab.title,
-            url: tab.url,
-            windowId: tab.windowId,
-            favIconUrl: tab.favIconUrl || null,
-            lastAccessed: tab.lastAccessed || null
-          });
-        }
-      } catch (error) {
-        // Invalid URL, skip
+        results.push({
+          title: title,
+          count: tabs.length,
+          urls: Array.from(urlSet),
+          tabs: tabs,
+          favIconUrl: tabs[0].favIconUrl
+        });
       }
     }
-  });
+    
+    return results;
+  }
+
+  allTabsHaveSameTitle(tabs) {
+    const firstTitle = tabs[0].title;
+    return tabs.every(tab => tab.title === firstTitle);
+  }
+
+  createTitleCountMap(tabs) {
+    const titleMap = {};
+    tabs.forEach(tab => {
+      titleMap[tab.title] = (titleMap[tab.title] || 0) + 1;
+    });
+    return titleMap;
+  }
+
+  hasMultipleUrls(tabs) {
+    const urlSet = new Set(tabs.map(tab => tab.url));
+    return urlSet.size > 1;
+  }
+
+  isAlreadyInSameUrlAndTitle(title, sameUrlAndTitle) {
+    return sameUrlAndTitle.some(item => item.title === title);
+  }
+
+  sortByCount(items) {
+    return items.sort((a, b) => b.count - a.count);
+  }
   
-  // Sort domains by count (highest first)
-  const sortedDomains = Object.entries(domainData)
-    .sort(([, a], [, b]) => b.count - a.count)
-    .map(([domain, data]) => ({ 
-      domain, 
-      count: data.count,
-      favIconUrl: data.favIconUrl,
-      tabs: data.tabs
-    }));
+  analyzeDomains() {
+    this.allTabs.forEach(tab => {
+      if (tab.url) {
+        const domain = this.extractDomain(tab.url);
+        if (domain) {
+          this.addTabToDomain(domain, tab);
+        }
+      }
+    });
+  }
+
+  extractDomain(url) {
+    try {
+      return new URL(url).hostname;
+    } catch {
+      return null;
+    }
+  }
+
+  addTabToDomain(domain, tab) {
+    if (!this.domainData[domain]) {
+      this.domainData[domain] = {
+        count: 0,
+        favIconUrl: null,
+        tabs: []
+      };
+    }
+    
+    this.domainData[domain].count++;
+    
+    if (!this.domainData[domain].favIconUrl && tab.favIconUrl) {
+      this.domainData[domain].favIconUrl = tab.favIconUrl;
+    }
+    
+    this.domainData[domain].tabs.push(this.createTabInfo(tab));
+  }
+
+  getSortedDomains() {
+    return Object.entries(this.domainData)
+      .sort(([, a], [, b]) => b.count - a.count)
+      .map(([domain, data]) => ({ 
+        domain, 
+        count: data.count,
+        favIconUrl: data.favIconUrl,
+        tabs: data.tabs
+      }));
+  }
   
-  return {
-    totalTabs: allTabs.length,
-    totalWindows: allWindows.length,
-    sameUrlAndTitle: sameUrlAndTitle.sort((a, b) => b.count - a.count),
-    sameUrlDifferentTitle: sameUrlDifferentTitle.sort((a, b) => b.count - a.count),
-    sameTitleDifferentUrl: sameTitleDifferentUrl.sort((a, b) => b.count - a.count),
-    tabsPerDomain: sortedDomains
-  };
+  async analyze() {
+    await this.initialize();
+    const duplicates = this.categorizeDuplicates();
+    
+    return {
+      totalTabs: this.allTabs.length,
+      totalWindows: this.allWindows.length,
+      ...duplicates,
+      tabsPerDomain: this.getSortedDomains()
+    };
+  }
+}
+
+async function analyzeAllTabs() {
+  const analyzer = new TabAnalyzer();
+  return await analyzer.analyze();
 }
 
 export { analyzeAllTabs };
