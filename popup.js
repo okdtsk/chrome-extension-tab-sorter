@@ -166,6 +166,34 @@ async function refreshStatisticsAndModal(tabGroup, groupInfo) {
   }
 }
 
+// Format time display
+function formatTimeInfo(lastAccessed) {
+  if (!lastAccessed) {
+    return 'Last viewed: Unknown';
+  }
+  
+  const now = Date.now();
+  const timeDiff = now - lastAccessed;
+  
+  // Convert to human readable format
+  const seconds = Math.floor(timeDiff / 1000);
+  const minutes = Math.floor(seconds / 60);
+  const hours = Math.floor(minutes / 60);
+  const days = Math.floor(hours / 24);
+  
+  if (days > 0) {
+    return `Last viewed: ${days} day${days > 1 ? 's' : ''} ago`;
+  } else if (hours > 0) {
+    return `Last viewed: ${hours} hour${hours > 1 ? 's' : ''} ago`;
+  } else if (minutes > 0) {
+    return `Last viewed: ${minutes} minute${minutes > 1 ? 's' : ''} ago`;
+  } else if (seconds > 10) {
+    return `Last viewed: ${seconds} seconds ago`;
+  } else {
+    return 'Last viewed: Just now';
+  }
+}
+
 // Update the statistics display without reloading everything
 function updateStatisticsDisplay(stats) {
   // Update Same URL & Title tabs
@@ -299,11 +327,13 @@ function showTabSelectionModal(tabs, groupInfo, tabGroup) {
     const faviconHtml = tab.favIconUrl 
       ? `<img class="tab-option-favicon" src="${tab.favIconUrl}" alt="">`
       : `<div class="tab-option-favicon stat-favicon-placeholder"></div>`;
+    const timeInfo = formatTimeInfo(tab.lastAccessed);
     tabOption.innerHTML = `
       ${faviconHtml}
       <div class="tab-option-content">
         <div class="tab-option-title">${tab.title || 'Untitled'}</div>
         <div class="tab-option-url">${tab.url || ''}</div>
+        <div class="tab-time-info">${timeInfo}</div>
       </div>
       <button class="tab-close-btn" data-tab-id="${tab.id}" title="Close tab">×</button>
     `;
