@@ -350,3 +350,19 @@ h2 {
 .tab-close-btn:active {
   transform: scale(0.9);
 }
+
+.tab-time-info {
+  font-size: 11px;
+  color: #666;
+  margin-top: 4px;
+  line-height: 1.2;
+}
+
+.tab-time-info .time-label {
+  font-weight: 500;
+  margin-right: 4px;
+}
+
+.tab-time-info .time-value {
+  color: #888;
+}
