@@ -10,66 +10,106 @@ async function analyzeAllTabs() {
     }
   }
   
-  // Analyze duplicate URLs
-  const urlCounts = {};
-  const duplicateUrls = [];
+  // Analyze duplicates and categorize them
+  const urlGroups = {};
+  const titleGroups = {};
   
+  // Group tabs by URL
   allTabs.forEach(tab => {
     if (tab.url) {
-      if (!urlCounts[tab.url]) {
-        urlCounts[tab.url] = { count: 0, tabs: [] };
+      if (!urlGroups[tab.url]) {
+        urlGroups[tab.url] = [];
       }
-      urlCounts[tab.url].count++;
-      urlCounts[tab.url].tabs.push({
+      urlGroups[tab.url].push({
         id: tab.id,
         title: tab.title,
-        windowId: tab.windowId
+        url: tab.url,
+        windowId: tab.windowId,
+        favIconUrl: tab.favIconUrl || null
       });
     }
   });
   
-  // Find URLs that appear more than once
-  for (const [url, data] of Object.entries(urlCounts)) {
-    if (data.count > 1) {
-      duplicateUrls.push({
-        url: url,
-        count: data.count,
-        tabs: data.tabs
+  // Group tabs by title
+  allTabs.forEach(tab => {
+    if (tab.title) {
+      if (!titleGroups[tab.title]) {
+        titleGroups[tab.title] = [];
+      }
+      titleGroups[tab.title].push({
+        id: tab.id,
+        title: tab.title,
+        url: tab.url,
+        windowId: tab.windowId,
+        favIconUrl: tab.favIconUrl || null
       });
+    }
+  });
+  
+  // Categorize duplicates
+  const sameUrlAndTitle = [];
+  const sameUrlDifferentTitle = [];
+  const sameTitleDifferentUrl = [];
+  
+  // Find tabs with same URL
+  for (const [url, tabs] of Object.entries(urlGroups)) {
+    if (tabs.length > 1) {
+      // Check if all tabs have the same title
+      const firstTitle = tabs[0].title;
+      const allSameTitle = tabs.every(tab => tab.title === firstTitle);
+      
+      if (allSameTitle) {
+        sameUrlAndTitle.push({
+          url: url,
+          title: firstTitle,
+          count: tabs.length,
+          tabs: tabs,
+          favIconUrl: tabs[0].favIconUrl
+        });
+      } else {
+        // Group by different titles for the same URL
+        const titleMap = {};
+        tabs.forEach(tab => {
+          if (!titleMap[tab.title]) {
+            titleMap[tab.title] = 0;
+          }
+          titleMap[tab.title]++;
+        });
+        
+        sameUrlDifferentTitle.push({
+          url: url,
+          count: tabs.length,
+          titles: Object.keys(titleMap),
+          tabs: tabs,
+          favIconUrl: tabs[0].favIconUrl
+        });
+      }
     }
   }
   
-  // Analyze duplicate titles
-  const titleCounts = {};
-  const duplicateTitles = [];
-  
-  allTabs.forEach(tab => {
-    if (tab.title) {
-      if (!titleCounts[tab.title]) {
-        titleCounts[tab.title] = { count: 0, tabs: [] };
+  // Find tabs with same title but different URLs
+  for (const [title, tabs] of Object.entries(titleGroups)) {
+    if (tabs.length > 1) {
+      // Check if any have different URLs
+      const urlSet = new Set(tabs.map(tab => tab.url));
+      if (urlSet.size > 1) {
+        // Only include if not already in sameUrlAndTitle
+        const isInSameUrlAndTitle = sameUrlAndTitle.some(item => item.title === title);
+        if (!isInSameUrlAndTitle) {
+          sameTitleDifferentUrl.push({
+            title: title,
+            count: tabs.length,
+            urls: Array.from(urlSet),
+            tabs: tabs,
+            favIconUrl: tabs[0].favIconUrl
+          });
+        }
       }
-      titleCounts[tab.title].count++;
-      titleCounts[tab.title].tabs.push({
-        id: tab.id,
-        url: tab.url,
-        windowId: tab.windowId
-      });
-    }
-  });
-  
-  // Find titles that appear more than once
-  for (const [title, data] of Object.entries(titleCounts)) {
-    if (data.count > 1) {
-      duplicateTitles.push({
-        title: title,
-        count: data.count,
-        tabs: data.tabs
-      });
     }
   }
   
   // Analyze tabs per domain
-  const domainCounts = {};
+  const domainData = {};
   
   allTabs.forEach(tab => {
     if (tab.url) {
@@ -78,10 +118,26 @@ async function analyzeAllTabs() {
         const domain = url.hostname;
         
         if (domain) {
-          if (!domainCounts[domain]) {
-            domainCounts[domain] = 0;
+          if (!domainData[domain]) {
+            domainData[domain] = {
+              count: 0,
+              favIconUrl: null,
+              tabs: []
+            };
           }
-          domainCounts[domain]++;
+          domainData[domain].count++;
+          // Store the first non-null favicon found for this domain
+          if (!domainData[domain].favIconUrl && tab.favIconUrl) {
+            domainData[domain].favIconUrl = tab.favIconUrl;
+          }
+          // Store tab information
+          domainData[domain].tabs.push({
+            id: tab.id,
+            title: tab.title,
+            url: tab.url,
+            windowId: tab.windowId,
+            favIconUrl: tab.favIconUrl || null
+          });
         }
       } catch (error) {
         // Invalid URL, skip
@@ -90,15 +146,21 @@ async function analyzeAllTabs() {
   });
   
   // Sort domains by count (highest first)
-  const sortedDomains = Object.entries(domainCounts)
-    .sort(([, a], [, b]) => b - a)
-    .map(([domain, count]) => ({ domain, count }));
+  const sortedDomains = Object.entries(domainData)
+    .sort(([, a], [, b]) => b.count - a.count)
+    .map(([domain, data]) => ({ 
+      domain, 
+      count: data.count,
+      favIconUrl: data.favIconUrl,
+      tabs: data.tabs
+    }));
   
   return {
     totalTabs: allTabs.length,
     totalWindows: allWindows.length,
-    duplicateUrls: duplicateUrls.sort((a, b) => b.count - a.count),
-    duplicateTitles: duplicateTitles.sort((a, b) => b.count - a.count),
+    sameUrlAndTitle: sameUrlAndTitle.sort((a, b) => b.count - a.count),
+    sameUrlDifferentTitle: sameUrlDifferentTitle.sort((a, b) => b.count - a.count),
+    sameTitleDifferentUrl: sameTitleDifferentUrl.sort((a, b) => b.count - a.count),
     tabsPerDomain: sortedDomains
   };
 }
