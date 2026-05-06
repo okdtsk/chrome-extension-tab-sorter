@@ -5,14 +5,30 @@ class TabAnalyzer {
     this.urlGroups = {};
     this.titleGroups = {};
     this.domainData = {};
+    this.tabGroupMap = {};
   }
 
   async initialize() {
     this.allWindows = await chrome.windows.getAll({ populate: true });
+    this.tabGroupMap = await this.fetchTabGroupMap();
     this.collectAllTabs();
     this.groupTabsByUrl();
     this.groupTabsByTitle();
     this.analyzeDomains();
+  }
+
+  async fetchTabGroupMap() {
+    try {
+      const groups = await chrome.tabGroups.query({});
+      const map = {};
+      for (const group of groups) {
+        map[group.id] = { title: group.title, color: group.color };
+      }
+      return map;
+    } catch (error) {
+      console.error('Error fetching tab groups:', error);
+      return {};
+    }
   }
 
   collectAllTabs() {
@@ -24,13 +40,19 @@ class TabAnalyzer {
   }
 
   createTabInfo(tab) {
+    const groupId = typeof tab.groupId === 'number' ? tab.groupId : -1;
+    const groupInfo = groupId !== -1 ? this.tabGroupMap[groupId] : null;
     return {
       id: tab.id,
       title: tab.title,
       url: tab.url,
       windowId: tab.windowId,
       favIconUrl: tab.favIconUrl || null,
-      lastAccessed: tab.lastAccessed || null
+      lastAccessed: tab.lastAccessed || null,
+      pinned: tab.pinned || false,
+      groupId: groupId,
+      groupTitle: groupInfo?.title || null,
+      groupColor: groupInfo?.color || null
     };
   }
 

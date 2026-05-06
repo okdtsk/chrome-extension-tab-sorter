@@ -357,6 +357,92 @@ h2 {
   transform: scale(0.9);
 }
 
+.tab-option-labels {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin-top: 4px;
+  margin-bottom: 2px;
+}
+
+.tab-label {
+  display: inline-flex;
+  align-items: center;
+  font-size: 10px;
+  font-weight: 600;
+  line-height: 1;
+  padding: 2px 6px;
+  border-radius: 10px;
+  white-space: nowrap;
+  max-width: 160px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.tab-label-pinned {
+  background-color: #fff3e0;
+  color: #e65100;
+  border: 1px solid #ffcc80;
+}
+
+.tab-label-group {
+  border: 1px solid transparent;
+}
+
+.tab-label-group-grey {
+  background-color: #eceff1;
+  color: #455a64;
+  border-color: #cfd8dc;
+}
+
+.tab-label-group-blue {
+  background-color: #e3f2fd;
+  color: #1565c0;
+  border-color: #90caf9;
+}
+
+.tab-label-group-red {
+  background-color: #ffebee;
+  color: #c62828;
+  border-color: #ef9a9a;
+}
+
+.tab-label-group-yellow {
+  background-color: #fffde7;
+  color: #f9a825;
+  border-color: #fff59d;
+}
+
+.tab-label-group-green {
+  background-color: #e8f5e9;
+  color: #2e7d32;
+  border-color: #a5d6a7;
+}
+
+.tab-label-group-pink {
+  background-color: #fce4ec;
+  color: #ad1457;
+  border-color: #f48fb1;
+}
+
+.tab-label-group-purple {
+  background-color: #f3e5f5;
+  color: #6a1b9a;
+  border-color: #ce93d8;
+}
+
+.tab-label-group-cyan {
+  background-color: #e0f7fa;
+  color: #00838f;
+  border-color: #80deea;
+}
+
+.tab-label-group-orange {
+  background-color: #fff3e0;
+  color: #ef6c00;
+  border-color: #ffcc80;
+}
+
 .tab-time-info {
   font-size: 11px;
   color: #666;

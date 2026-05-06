@@ -330,23 +330,51 @@ class PopupController {
   createTabOption(tab, modal, tabList) {
     const tabOption = document.createElement('div');
     tabOption.className = 'tab-option';
-    
+
     const faviconHtml = this.createTabOptionFaviconHTML(tab.favIconUrl);
     const timeInfo = this.formatTimeInfo(tab.lastAccessed);
-    
+    const labelsHtml = this.createTabLabelsHTML(tab);
+
     tabOption.innerHTML = `
       ${faviconHtml}
       <div class="tab-option-content">
         <div class="tab-option-title">${tab.title || 'Untitled'}</div>
+        ${labelsHtml ? `<div class="tab-option-labels">${labelsHtml}</div>` : ''}
         <div class="tab-option-url">${tab.url || ''}</div>
         <div class="tab-time-info">${timeInfo}</div>
       </div>
       <button class="tab-close-btn" data-tab-id="${tab.id}" title="Close tab">×</button>
     `;
-    
+
     tabOption.addEventListener('click', (event) => this.handleTabOptionClick(event, tab, modal, tabList));
-    
+
     return tabOption;
+  }
+
+  createTabLabelsHTML(tab) {
+    const labels = [];
+
+    if (tab.pinned) {
+      labels.push(`<span class="tab-label tab-label-pinned" title="Pinned tab">📌 Pinned</span>`);
+    }
+
+    if (tab.groupId !== undefined && tab.groupId !== -1) {
+      const rawTitle = tab.groupTitle && tab.groupTitle.length > 0 ? tab.groupTitle : 'Group';
+      const groupTitle = this.escapeHtml(rawTitle);
+      const groupColor = this.escapeHtml(tab.groupColor || 'grey');
+      labels.push(`<span class="tab-label tab-label-group tab-label-group-${groupColor}" title="In group: ${groupTitle}">${groupTitle}</span>`);
+    }
+
+    return labels.join('');
+  }
+
+  escapeHtml(value) {
+    return String(value)
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#39;');
   }
 
   createTabOptionFaviconHTML(favIconUrl) {
