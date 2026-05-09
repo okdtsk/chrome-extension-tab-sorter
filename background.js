@@ -17,7 +17,8 @@ class BackgroundMessageHandler {
 
     const actionHandlers = {
       switchToTab: () => this.handleTabSwitch(request.tabId, request.windowId),
-      closeTab: () => this.handleTabClose(request.tabId)
+      closeTab: () => this.handleTabClose(request.tabId),
+      closeTabs: () => this.handleTabsClose(request.tabIds)
     };
 
     const handler = actionHandlers[request.action];
@@ -50,6 +51,10 @@ class BackgroundMessageHandler {
         return this.isValidTabId(request.tabId) && this.isValidWindowId(request.windowId);
       case 'closeTab':
         return this.isValidTabId(request.tabId);
+      case 'closeTabs':
+        return Array.isArray(request.tabIds)
+          && request.tabIds.length > 0
+          && request.tabIds.every((id) => this.isValidTabId(id));
       default:
         return false;
     }
@@ -83,6 +88,15 @@ class BackgroundMessageHandler {
     } catch (error) {
       console.error('Error closing tab:', { tabId, error: error.message });
       throw new Error(`Failed to close tab: ${error.message}`);
+    }
+  }
+
+  async handleTabsClose(tabIds) {
+    try {
+      await chrome.tabs.remove(tabIds);
+    } catch (error) {
+      console.error('Error closing tabs:', { tabIds, error: error.message });
+      throw new Error(`Failed to close tabs: ${error.message}`);
     }
   }
 

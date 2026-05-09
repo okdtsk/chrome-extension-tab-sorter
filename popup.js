@@ -301,15 +301,119 @@ class PopupController {
     this.updateModalTitle(modalTitle, groupInfo, tabGroup);
     
     tabList.innerHTML = '';
-    
+
     const sortedTabs = this.sortTabsByLastViewed(tabs);
-    
+
     sortedTabs.forEach((tab) => {
       const tabOption = this.createTabOption(tab, modal, tabList);
       tabList.appendChild(tabOption);
     });
-    
+
+    this.renderBulkActions(sortedTabs, modal, tabList);
+
     modal.style.display = 'flex';
+  }
+
+  renderBulkActions(tabs, modal, tabList) {
+    const container = document.getElementById('tab-bulk-actions');
+    if (!container) return;
+
+    container.innerHTML = '';
+
+    if (tabs.length <= 1) return;
+
+    const importantIds = this.getImportantTabIds(tabs);
+    const tabsToCloseForKeep = tabs.filter((tab) => !importantIds.has(tab.id));
+
+    const closeAllBtn = document.createElement('button');
+    closeAllBtn.className = 'bulk-action-btn bulk-action-danger';
+    closeAllBtn.textContent = `Close all (${tabs.length})`;
+    closeAllBtn.title = `Close all ${tabs.length} tabs`;
+    closeAllBtn.addEventListener('click', () => this.handleCloseAll(tabs, modal, tabList));
+
+    const keepImportantBtn = document.createElement('button');
+    keepImportantBtn.className = 'bulk-action-btn';
+    keepImportantBtn.textContent = `Keep important (${importantIds.size})`;
+    keepImportantBtn.disabled = tabsToCloseForKeep.length === 0;
+    keepImportantBtn.title = this.buildKeepImportantTitle(tabs, importantIds);
+    keepImportantBtn.addEventListener('click', () => this.handleKeepImportant(tabs, modal, tabList));
+
+    container.appendChild(closeAllBtn);
+    container.appendChild(keepImportantBtn);
+  }
+
+  getImportantTabIds(tabs) {
+    const pinnedOrGrouped = tabs.filter(
+      (tab) => tab.pinned || (typeof tab.groupId === 'number' && tab.groupId !== -1)
+    );
+
+    if (pinnedOrGrouped.length > 0) {
+      return new Set(pinnedOrGrouped.map((tab) => tab.id));
+    }
+
+    const latest = tabs.reduce((best, tab) => {
+      if (!best) return tab;
+      return (tab.lastAccessed || 0) > (best.lastAccessed || 0) ? tab : best;
+    }, null);
+
+    return latest ? new Set([latest.id]) : new Set();
+  }
+
+  buildKeepImportantTitle(tabs, importantIds) {
+    const hasPinnedOrGrouped = tabs.some(
+      (tab) => tab.pinned || (typeof tab.groupId === 'number' && tab.groupId !== -1)
+    );
+
+    if (importantIds.size === 0) {
+      return 'No tabs to keep';
+    }
+
+    if (hasPinnedOrGrouped) {
+      return `Keep ${importantIds.size} pinned/grouped tab(s) and close the rest`;
+    }
+
+    return 'No pinned/grouped tabs found — keep the most recently viewed tab and close the rest';
+  }
+
+  async handleCloseAll(tabs, modal, tabList) {
+    const tabIds = tabs.map((tab) => tab.id);
+    await this.closeTabsBulk(tabIds, modal, tabList);
+  }
+
+  async handleKeepImportant(tabs, modal, tabList) {
+    const importantIds = this.getImportantTabIds(tabs);
+    const tabIds = tabs.filter((tab) => !importantIds.has(tab.id)).map((tab) => tab.id);
+
+    if (tabIds.length === 0) return;
+
+    await this.closeTabsBulk(tabIds, modal, tabList);
+  }
+
+  async closeTabsBulk(tabIds, modal, tabList) {
+    if (!tabIds || tabIds.length === 0) return;
+
+    try {
+      const response = await chrome.runtime.sendMessage({
+        action: 'closeTabs',
+        tabIds: tabIds
+      });
+
+      if (!response || !response.success) {
+        throw new Error(response?.error || 'Unknown error');
+      }
+
+      const modalTabGroup = modal.dataset.tabGroup;
+      const modalGroupInfo = JSON.parse(modal.dataset.groupInfo || '{}');
+
+      await this.refreshStatisticsAndModal(modalTabGroup, modalGroupInfo);
+
+      if (tabList.querySelectorAll('.tab-option').length === 0) {
+        modal.style.display = 'none';
+      }
+    } catch (error) {
+      console.error('Error closing tabs:', error);
+      alert('Error closing tabs: ' + error.message);
+    }
   }
 
   setupModalData(modal, tabGroup, groupInfo) {
